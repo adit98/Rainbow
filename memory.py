@@ -77,7 +77,6 @@ class ReplayMemory():
     self.t = 0  # Internal episode timestep counter
     self.transitions = SegmentTree(capacity)  # Store transitions in a wrap-around cyclic buffer within a sum tree for querying priorities
     self.spot_progress_reward = args.spot_progress_reward
-    # TODO change names
     self.spot_trial_reward = args.spot_trial_reward
 
   # Adds state, allowed actions, and selected action at time t, reward and terminal at time t + 1
@@ -94,10 +93,12 @@ class ReplayMemory():
       if transition[t + 1].timestep == 0:
         transition[t] = blank_trans  # If future frame has timestep 0
       else:
-        transition[t] = self.transitions.get(idx - self.history + 1 + t)
+        #transition[t] = self.transitions.get(idx - self.history + 1 + t)
+        transition[t] = self.transitions.get(t)
     for t in range(self.history, self.history + self.n):  # e.g. 4 5 6
       if transition[t - 1].nonterminal:
-        transition[t] = self.transitions.get(idx - self.history + 1 + t)
+        #transition[t] = self.transitions.get(idx - self.history + 1 + t)
+        transition[t] = self.transitions.get(t)
       else:
         transition[t] = blank_trans  # If prev (next) frame is terminal
     return transition
@@ -111,16 +112,10 @@ class ReplayMemory():
       prob, idx, tree_idx = self.transitions.find(sample)  # Retrieve sample from tree with un-normalised probability
       invalid_count += 1
       if invalid_count >= 10:
-        #print('_get_sample_from_segment() invalid count bug: ' + str(invalid_count))
-        #print("index", self.transitions.index, "idx", idx, "capacity", self.capacity,
-        #  "multi-step", self.n, "history", self.history)
-        #print((self.transitions.index - idx) % self.capacity)
-        #print((idx - self.transitions.index) % self.capacity)
-        #print(prob)
-        #input()
         pass
       # Resample if transition straddled current index or probablity 0
-      if (self.transitions.index - idx) % self.capacity > self.n and (idx - self.transitions.index) % self.capacity >= self.history and prob != 0:
+      #if (self.transitions.index - idx) % self.capacity > self.n and (idx - self.transitions.index) % self.capacity >= self.history and prob != 0:
+      if prob != 0:
         valid = True  # Note that conditions are valid but extra conservative around buffer index 0
 
     # Retrieve all required transition data (from t - h to t + n)
@@ -136,16 +131,27 @@ class ReplayMemory():
     R = torch.tensor([sum(self.discount ** n * transition[self.history + n - 1].reward for n in range(self.n))], dtype=torch.float32, device=self.device)
     #TODO add cases here - this is why reward schedule doesn't work
     if self.spot_progress_reward:
-       R = torch.tensor([transition[self.history-1].reward], dtype=torch.float32, device=self.device)
+      R = torch.tensor([transition[self.history-1].reward], dtype=torch.float32, device=self.device)
     elif self.spot_trial_reward:
-       raise NotImplementedError()
+      #TODO see if this if statement speeds things up or slows down
+      # if the reward is 0, skip iterating since TR is 0
+      if transition[self.history - 1].reward == 0:
+        R = torch.tensor(0, dtype=torch.float32, device=self.device)
+      else:
+        R = torch.tensor([transition[self.history - 1 + n].reward for n in range(self.n)], dtype=torch.float32, device=self.device)
+        # multiply terminal reward by 2
+        R[-1] *= 2
+        # populate R recursively
+        for n in range(self.n - 2, 0, -1):
+          R[n] = 0 if R[n] == 0 else R[n] + self.discount * R[n + 1]
+
     else:
-       R = torch.tensor([sum(self.discount ** n * transition[self.history + n - 1].reward for n in range(self.n))], dtype=torch.float32, device=self.device)
+      R = torch.tensor([sum(self.discount ** n * transition[self.history + n - 1].reward for n in range(self.n))], dtype=torch.float32, device=self.device)
 
     # Mask for non-terminal nth next states
     nonterminal = torch.tensor([transition[self.history + self.n - 1].nonterminal], dtype=torch.float32, device=self.device)
 
-    return prob, idx, tree_idx, state, action, R, next_state, nonterminal, allowed_actions 
+    return prob, idx, tree_idx, state, action, R, next_state, nonterminal, allowed_actions
 
   def sample(self, batch_size):
     p_total = self.transitions.total()  # Retrieve sum of all priorities (used to create a normalised probability distribution)

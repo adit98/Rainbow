@@ -103,12 +103,12 @@ class Env():
 
 class MinigridEnv():
   def __init__(self, args):
-    if args.progress_reward:
+    if args.spot_progress_reward:
       self.env = LavaCrossingSpotRewardEnv(args.action_reward_penalty)
-      self.progress_reward = True
+      self.spot_progress_reward = True
     else:
       self.env = gym.make(args.env).unwrapped
-      self.progress_reward = False
+      self.spot_progress_reward = False
 
     self.img_size = 84
 
@@ -162,7 +162,7 @@ class MinigridEnv():
 
   def step(self, action, agent_pos=None):
     # figure out actions
-    if self.progress_reward:
+    if self.spot_progress_reward:
       _, reward, done = self.env.step(action, self.agent_pos())
     else:
       _, reward, done, _ = self.env.step(action)
@@ -174,11 +174,11 @@ class MinigridEnv():
     return torch.stack(list(self.state_buffer), 0), reward, done
 
   def train(self):
-    if self.progress_reward:
+    if self.spot_progress_reward:
       self.env.train()
 
   def eval(self):
-    if self.progress_reward:
+    if self.spot_progress_reward:
       self.env.eval()
 
   def action_space(self):

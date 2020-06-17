@@ -7,7 +7,8 @@ import torch
 Transition = namedtuple('Transition', ('timestep', 'state', 'action', 'reward', 'nonterminal', 'allowed_actions'))
 # TODO fix this to be general, right now allow turning left/right or moving forward by default
 default_allowed = np.array([1, 1, 1, 0, 0, 0])
-blank_trans = Transition(0, torch.zeros(84, 84, dtype=torch.uint8), None, 0, False, default_allowed)
+start_blank_trans = Transition(0, torch.zeros(84, 84, dtype=torch.uint8), None, 0, True, default_allowed)
+end_blank_trans = Transition(0, torch.zeros(84, 84, dtype=torch.uint8), None, 0, False, default_allowed)
 
 # Segment tree data structure where parent node values are sum/max of children node values
 class SegmentTree():
@@ -91,7 +92,7 @@ class ReplayMemory():
     transition[self.history - 1] = self.transitions.get(idx)
     for t in range(self.history - 2, -1, -1):  # e.g. 2 1 0
       if transition[t + 1].timestep == 0:
-        transition[t] = blank_trans  # If future frame has timestep 0
+        transition[t] = start_blank_trans  # If future frame has timestep 0
       else:
         #transition[t] = self.transitions.get(idx - self.history + 1 + t)
         transition[t] = self.transitions.get(t)
@@ -100,7 +101,7 @@ class ReplayMemory():
         #transition[t] = self.transitions.get(idx - self.history + 1 + t)
         transition[t] = self.transitions.get(t)
       else:
-        transition[t] = blank_trans  # If prev (next) frame is terminal
+        transition[t] = end_blank_trans  # If prev (next) frame is terminal
     return transition
 
   # Returns a valid sample from a segment

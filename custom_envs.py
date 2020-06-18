@@ -60,7 +60,7 @@ class LavaCrossingSpotRewardEnv(LavaCrossingEnv):
     # set unreachable spots to have 0 reward
     self.reward_grid[unreachable_inds] = 0
     # normalize to be from 0 to 1
-    self.reward_grid = self.reward_grid / np.sum(self.reward_grid[~unreachable_inds])
+    self.reward_grid = self.reward_grid / np.max(self.reward_grid[~unreachable_inds])
 
   def _reward(self, action=None, last_pos=None):
     if self.base_reward_penalty:

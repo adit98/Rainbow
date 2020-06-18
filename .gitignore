@@ -97,3 +97,4 @@ results/**/*.html
 results/**/*.csv
 # memory
 **/memory
+**/*.pkl.bz2

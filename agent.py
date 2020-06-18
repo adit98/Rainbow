@@ -105,7 +105,8 @@ class Agent():
 
       # Compute Tz (Bellman operator T applied to z)
       if self.progress_reward:
-        Tz = returns.unsqueeze(1) + nonterminals * self.discount * self.support.unsqueeze(0) # Tz = R + γz (accounting for terminal states)
+        # TODO testing multiply rewards by 0.2 if sequence is nonterminal
+        Tz = returns.unsqueeze(1) * (1 - nonterminals * 0.8) + nonterminals * self.discount * self.support.unsqueeze(0) # Tz = R + γz (accounting for terminal states)
       else:
         Tz = returns.unsqueeze(1) + nonterminals * (self.discount ** self.n) * self.support.unsqueeze(0)  # Tz = R^n + (γ^n)z (accounting for terminal states)
 
